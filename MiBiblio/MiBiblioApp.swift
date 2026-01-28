@@ -2,7 +2,7 @@
 //  MiBiblioApp.swift
 //  MiBiblio
 //
-//  Created by Juan Carlos Martínez Pérez on 28/1/26.
+//  Created by Martiper on 28/1/26.
 //
 
 import SwiftUI
