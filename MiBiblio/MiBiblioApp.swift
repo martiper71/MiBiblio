@@ -1,11 +1,5 @@
-//
-//  MiBiblioApp.swift
-//  MiBiblio
-//
-//  Created by Martiper on 28/1/26.
-//
-
 import SwiftUI
+import SwiftData
 
 @main
 struct MiBiblioApp: App {
@@ -13,5 +7,6 @@ struct MiBiblioApp: App {
         WindowGroup {
             ContentView()
         }
+        .modelContainer(for: Book.self) // <--- ¡ESTO ES LO QUE FALTA!
     }
 }
