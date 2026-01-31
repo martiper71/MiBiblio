@@ -5,128 +5,93 @@ struct BookDetailView: View {
     @Bindable var book: Book
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) var dismiss
+    
+    // Estado local para la puntuación antes de guardar
+    @State private var rating: Int = 0
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // 1. PORTADA (Igual que antes)
-                ZStack {
-                    AsyncImage(url: URL(string: book.coverUrl)) { phase in
-                        if let image = phase.image {
-                            image.resizable().aspectRatio(contentMode: .fill)
-                                .frame(height: 300)
-                                .blur(radius: 20)
-                                .opacity(0.5)
-                        }
-                    }
-                    AsyncImage(url: URL(string: book.coverUrl)) { phase in
-                        if let image = phase.image {
-                            image.resizable().aspectRatio(contentMode: .fit)
-                                .shadow(radius: 10)
-                        } else {
-                            Image(systemName: "book.closed")
-                                .font(.system(size: 80))
-                                .foregroundStyle(.gray)
-                        }
-                    }
-                    .frame(height: 220)
+                // Portada
+                AsyncImage(url: URL(string: book.coverUrl)) { image in
+                    image.resizable().aspectRatio(contentMode: .fit)
+                } placeholder: {
+                    Image(systemName: "book").font(.system(size: 100))
                 }
-                .frame(height: 300)
-                .clipped()
-                
-                // 2. TÍTULO
-                VStack(spacing: 8) {
-                    Text(book.title).font(.title).bold().multilineTextAlignment(.center)
-                    Text(book.author).font(.title3).foregroundStyle(.secondary)
-                }
-                .padding(.horizontal)
-                
-                // 3. ZONA DE ESTADO (Aquí están los cambios)
-                GroupBox {
-                    VStack(spacing: 15) {
-                        // INTERRUPTOR
-                        Toggle(isOn: $book.isRead) {
-                            HStack {
-                                Image(systemName: book.isRead ? "flag.checkered" : "eyeglasses")
-                                    .foregroundStyle(book.isRead ? .purple : .blue)
-                                // Texto dinámico como pediste
-                                Text(book.isRead ? "Terminado" : "Leyendo actualmente")
-                                    .font(.headline)
-                            }
+                .frame(height: 250).padding(.top)
+
+                Text(book.title).font(.title).bold().multilineTextAlignment(.center)
+                Text(book.author).font(.title3).foregroundStyle(.secondary)
+
+                // SECCIÓN DE ESTADO Y PUNTUACIÓN
+                VStack(spacing: 15) {
+                    if book.status == "Leyendo" {
+                        Button(action: finishBook) {
+                            Label("Marcar como terminado", systemImage: "checkmark.circle.fill")
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.green)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
                         }
-                        // Al activar el toggle, asignamos fecha de hoy si no tenía
-                        .onChange(of: book.isRead) { oldValue, newValue in
-                            if newValue && book.dateFinished == nil {
-                                book.dateFinished = Date()
-                            }
+                    } else if book.status == "Leídos" {
+                        VStack(spacing: 10) {
+                            Text("Tu calificación").font(.headline)
+                            RatingView(rating: $book.rating) // Aquí usamos el componente de arriba
+                                .font(.largeTitle)
                         }
-                        
-                        // OPCIONES QUE APARECEN AL TERMINAR EL LIBRO
-                        if book.isRead {
-                            Divider()
-                            
-                            // A) Selector de Fecha
-                            DatePicker(
-                                "Fecha de finalización",
-                                selection: Binding(
-                                    get: { book.dateFinished ?? Date() },
-                                    set: { book.dateFinished = $0 }
-                                ),
-                                displayedComponents: .date
-                            )
-                            
-                            Divider()
-                            
-                            // B) Calificación con Estrellas
-                            HStack {
-                                Text("Calificación")
-                                Spacer()
-                                ForEach(1...5, id: \.self) { star in
-                                    Image(systemName: star <= book.rating ? "star.fill" : "star")
-                                        .foregroundStyle(.yellow)
-                                        .font(.title3)
-                                        .onTapGesture {
-                                            // Guardado automático al tocar
-                                            withAnimation {
-                                                book.rating = star
-                                            }
-                                        }
-                                }
-                            }
-                        }
+                        .padding()
+                        .background(Color.yellow.opacity(0.1))
+                        .cornerRadius(12)
                     }
                 }
                 .padding(.horizontal)
-                
-                // 4. NOTAS
+
+                // NOTAS
                 VStack(alignment: .leading) {
-                    Text("Mis Notas").font(.headline).padding(.leading, 5)
+                    Text("Mis Notas").font(.headline)
                     TextEditor(text: Binding(get: { book.notes ?? "" }, set: { book.notes = $0 }))
                         .frame(height: 150)
-                        .scrollContentBackground(.hidden)
-                        .padding(8)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(10)
+                        .padding(4)
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.2)))
                 }
                 .padding(.horizontal)
-                
-                // 5. BORRAR
-                Button(role: .destructive, action: deleteBook) {
-                    HStack {
-                        Image(systemName: "trash")
-                        Text("Eliminar de mi biblioteca")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
+
+                Button("Eliminar libro", role: .destructive) {
+                    modelContext.delete(book)
+                    dismiss()
                 }
-                .padding(.top, 20)
+                .padding(.top)
             }
         }
-        .ignoresSafeArea(edges: .top)
+        .navigationBarTitleDisplayMode(.inline)
+        // Al entrar, si ya tiene rating, lo cargamos
+        .onAppear { rating = book.rating }
     }
+
+    private func finishBook() {
+        // Aquí podrías mostrar un pequeño Alert o Sheet para pedir las estrellas
+        // Por ahora, lo movemos a leídos y podrías dejar que el usuario las pulse
+        withAnimation {
+            book.status = "Leídos"
+            book.dateFinished = Date()
+            // Aquí podrías añadir una lógica para que el usuario elija las estrellas
+        }
+    }
+}
+struct RatingView: View {
+    @Binding var rating: Int
     
-    func deleteBook() {
-        modelContext.delete(book)
-        dismiss()
+    var body: some View {
+        HStack {
+            ForEach(1...5, id: \.self) { index in
+                Image(systemName: index <= rating ? "star.fill" : "star")
+                    .foregroundColor(.yellow)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        rating = index
+                    }
+            }
+        }
     }
 }

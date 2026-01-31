@@ -4,119 +4,94 @@ import SwiftData
 struct AddBookDetailView: View {
     let googleBook: GoogleBookItem
     @Binding var isPresented: Bool
-    
     @Environment(\.modelContext) private var modelContext
+    
+    @State private var readingOption = "Empezar a leer"
+    let options = ["Empezar a leer", "Leer más tarde"]
+    
     @State private var startDate = Date()
     @State private var price: Double = 0.0
     @State private var selectedFormat = "Físico"
-    
     let formats = ["Físico", "Digital", "Audio"]
-
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 25) {
-                // 1. PORTADA CON SOMBRA
+                // Portada
                 AsyncImage(url: URL(string: googleBook.coverUrl)) { phase in
                     if let image = phase.image {
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(height: 280)
-                            .cornerRadius(12)
-                            .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
-                    } else {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.gray.opacity(0.2))
-                            .frame(height: 280)
-                            .overlay(Image(systemName: "book.closed").font(.largeTitle))
-                    }
-                }
-                .padding(.top, 20)
-
-                // 2. TÍTULO Y AUTOR
-                VStack(spacing: 8) {
-                    Text(googleBook.volumeInfo.title)
-                        .font(.title2)
-                        .bold()
-                        .multilineTextAlignment(.center)
-                    
-                    Text(googleBook.volumeInfo.authors?.joined(separator: ", ") ?? "Autor desconocido")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal)
-
-                // 3. TARJETA DE DATOS
+                        image.resizable().aspectRatio(contentMode: .fit)
+                            .frame(height: 250).cornerRadius(12).shadow(radius: 5)
+                    } else { Color.gray.opacity(0.1).frame(height: 250) }
+                }.padding(.top)
+                
+                // Info Libro
+                VStack(spacing: 4) {
+                    Text(googleBook.volumeInfo.title).font(.title3).bold().multilineTextAlignment(.center)
+                    Text(googleBook.volumeInfo.authors?.joined(separator: ", ") ?? "Autor Desconocido").foregroundStyle(.secondary)
+                }.padding(.horizontal)
+                
+                // Opciones
                 VStack(spacing: 20) {
-                    // Fecha de inicio
-                    DatePicker("Fecha de inicio", selection: $startDate, displayedComponents: .date)
-                        .font(.subheadline) // Estilo de fuente estándar
-
-                    Divider()
-
-                    // Formato con la misma fuente que la fecha
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Formato")
-                            .font(.subheadline) // Ahora igual que "Fecha de inicio"
-                        
-                        Picker("Formato", selection: $selectedFormat) {
-                            ForEach(formats, id: \.self) { format in
-                                Text(format).tag(format)
-                            }
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("¿Cuándo vas a leerlo?").font(.subheadline)
+                        Picker("", selection: $readingOption) {
+                            ForEach(options, id: \.self) { Text($0) }
+                        }.pickerStyle(.segmented)
+                    }
+                    
+                    if readingOption == "Empezar a leer" {
+                        Divider()
+                        DatePicker("Fecha de inicio", selection: $startDate, displayedComponents: .date).font(.subheadline)
+                        Divider()
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Formato").font(.subheadline)
+                            Picker("", selection: $selectedFormat) {
+                                ForEach(formats, id: \.self) { Text($0) }
+                            }.pickerStyle(.segmented)
                         }
-                        .pickerStyle(.segmented)
-                    }
-
-                    Divider()
-
-                    // Precio con el símbolo € al final
-                    HStack {
-                        Text("Precio")
-                            .font(.subheadline)
-                        Spacer()
-                        TextField("0", value: $price, format: .number)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 60)
-                            .padding(6)
-                            .background(Color(.systemGray6))
-                            .cornerRadius(8)
-                        
-                        Text("€") // Símbolo al final como pediste
-                            .font(.body)
+                        Divider()
+                        HStack {
+                            Text("Precio").font(.subheadline)
+                            Spacer()
+                            TextField("0", value: $price, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                                .frame(width: 80).padding(6).background(Color(.systemGray6)).cornerRadius(8)
+                            Text("€")
+                        }
                     }
                 }
-                .padding()
-                .background(RoundedRectangle(cornerRadius: 15).fill(Color(.secondarySystemBackground)))
-                .padding(.horizontal)
-
-                // 4. BOTÓN DE ACCIÓN
+                .padding().background(RoundedRectangle(cornerRadius: 15).fill(Color(.secondarySystemBackground))).padding(.horizontal)
+                
                 Button(action: saveBook) {
-                    Text("Añadir a mi Biblioteca")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.blue)
-                        .cornerRadius(15)
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 30)
+                    Text("Añadir a mi Biblioteca").bold().foregroundStyle(.white)
+                        .frame(maxWidth: .infinity).padding().background(Color.blue).cornerRadius(15)
+                }.padding(.horizontal).padding(.bottom, 30)
             }
         }
-        .navigationBarTitleDisplayMode(.inline)
     }
-
+    
     func saveBook() {
+        let finalStatus = (readingOption == "Empezar a leer") ? "Leyendo" : "Próximos"
+        
         let newBook = Book(
             title: googleBook.volumeInfo.title,
             author: googleBook.volumeInfo.authors?.joined(separator: ", ") ?? "Desconocido",
             coverUrl: googleBook.coverUrl,
-            startDate: startDate,
-            price: price,
-            format: selectedFormat
+            status: finalStatus,
+            startDate: (readingOption == "Empezar a leer") ? startDate : nil,
+            price: (readingOption == "Empezar a leer") ? price : 0.0,
+            format: (readingOption == "Empezar a leer") ? selectedFormat : "Físico"
         )
+        
         modelContext.insert(newBook)
-        isPresented = false
+        
+        // ESTA ES LA CLAVE: Forzar el guardado inmediato
+        do {
+            try modelContext.save()
+            print("✅ Libro guardado con éxito en el estado: \(finalStatus)")
+            isPresented = false
+        } catch {
+            print("❌ ERROR AL GUARDAR: \(error.localizedDescription)")
+        }
     }
 }

@@ -7,6 +7,7 @@ struct MiBiblioApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: Book.self) // <--- ¡ESTO ES LO QUE FALTA!
+        // Asegúrate de que esta línea esté aquí y use el modelo Book
+        .modelContainer(for: Book.self)
     }
 }

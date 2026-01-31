@@ -8,12 +8,17 @@ struct ContentView: View {
         NavigationStack {
             VStack(spacing: 20) {
                 // TUS BOTONES ORIGINALES
-                NavigationLink(destination: BookListView(filterByRead: false, title: "Leyendo")) {
+                NavigationLink(destination: BookListView(filterStatus: "Leyendo", title: "Leyendo")) {
                     MenuButton(title: "Leyendo", icon: "book.fill", color: .blue)
                 }
-                
-                NavigationLink(destination: BookListView(filterByRead: true, title: "Leídos")) {
+
+                NavigationLink(destination: BookListView(filterStatus: "Leídos", title: "Leídos")) {
                     MenuButton(title: "Leídos", icon: "checkmark.seal.fill", color: .pink)
+                }
+
+                // NUEVA SECCIÓN
+                NavigationLink(destination: BookListView(filterStatus: "Próximos", title: "Próximos libros")) {
+                    MenuButton(title: "Próximos libros", icon: "clock.arrow.circlepath", color: .orange)
                 }
                 
                 Spacer()
