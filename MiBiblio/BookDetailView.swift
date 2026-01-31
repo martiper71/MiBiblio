@@ -6,92 +6,190 @@ struct BookDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) var dismiss
     
-    // Estado local para la puntuación antes de guardar
-    @State private var rating: Int = 0
+    // Estados
+    @State private var showingRating = false
+    @State private var showingStartSheet = false // Controla la pantalla completa
+    
+    // Variables temporales para la configuración
+    @State private var tempDate = Date()
+    @State private var tempFormat = "Físico"
+    @State private var tempPrice = 0.0
+    let formats = ["Físico", "Digital", "Audio"]
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // Portada
+                // 1. PORTADA
                 AsyncImage(url: URL(string: book.coverUrl)) { image in
                     image.resizable().aspectRatio(contentMode: .fit)
                 } placeholder: {
                     Image(systemName: "book").font(.system(size: 100))
                 }
-                .frame(height: 250).padding(.top)
+                .frame(height: 250).padding(.top).shadow(radius: 5)
 
-                Text(book.title).font(.title).bold().multilineTextAlignment(.center)
-                Text(book.author).font(.title3).foregroundStyle(.secondary)
+                // 2. TÍTULO Y AUTOR
+                VStack(spacing: 5) {
+                    Text(book.title).font(.title).bold().multilineTextAlignment(.center)
+                    Text(book.author).font(.title3).foregroundStyle(.secondary)
+                }.padding(.horizontal)
 
-                // SECCIÓN DE ESTADO Y PUNTUACIÓN
-                VStack(spacing: 15) {
+                Divider().padding()
+
+                // 3. LÓGICA DE ESTADO
+                VStack(spacing: 20) {
+                    
+                    // CASO A: Libro en curso (Leyendo)
                     if book.status == "Leyendo" {
-                        Button(action: finishBook) {
-                            Label("Marcar como terminado", systemImage: "checkmark.circle.fill")
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.green)
-                                .foregroundColor(.white)
-                                .cornerRadius(10)
+                        if !showingRating {
+                            Button(action: { withAnimation { showingRating = true } }) {
+                                Label("Terminar Libro", systemImage: "flag.checkered")
+                                    .font(.headline).foregroundColor(.white)
+                                    .frame(maxWidth: .infinity).padding().background(Color.blue).cornerRadius(12)
+                            }
+                        } else {
+                            // Selector de Estrellas
+                            VStack(spacing: 15) {
+                                Text("¿Qué nota le pones?").font(.headline)
+                                HStack(spacing: 10) {
+                                    ForEach(1...5, id: \.self) { number in
+                                        Image(systemName: number <= book.rating ? "star.fill" : "star")
+                                            .font(.largeTitle).foregroundColor(.yellow)
+                                            .onTapGesture { book.rating = number }
+                                    }
+                                }
+                                Button(action: moveToRead) {
+                                    Text("Guardar en Leídos").bold().foregroundColor(.white)
+                                        .padding(.vertical, 10).padding(.horizontal, 30)
+                                        .background(Color.green).cornerRadius(20)
+                                }
+                            }
+                            .padding().background(Color.gray.opacity(0.1)).cornerRadius(15)
                         }
-                    } else if book.status == "Leídos" {
-                        VStack(spacing: 10) {
-                            Text("Tu calificación").font(.headline)
-                            RatingView(rating: $book.rating) // Aquí usamos el componente de arriba
-                                .font(.largeTitle)
+                    }
+                    
+                    // CASO B: Libro terminado (Leídos)
+                    else if book.status == "Leídos" {
+                        VStack(spacing: 5) {
+                            Text("Leído el \(book.dateFinished?.formatted(date: .abbreviated, time: .omitted) ?? "-")")
+                                .font(.caption).foregroundStyle(.secondary)
+                            HStack {
+                                ForEach(1...5, id: \.self) { number in
+                                    Image(systemName: number <= book.rating ? "star.fill" : "star")
+                                        .foregroundColor(.yellow)
+                                }
+                            }.font(.title2)
                         }
-                        .padding()
-                        .background(Color.yellow.opacity(0.1))
-                        .cornerRadius(12)
+                        .padding().frame(maxWidth: .infinity)
+                        .background(Color.yellow.opacity(0.15)).cornerRadius(12)
+                    }
+                    
+                    // CASO C: Próximos libros
+                    else {
+                        Button(action: { showingStartSheet = true }) {
+                            Label("Empezar a leer", systemImage: "book.fill")
+                                .font(.headline).foregroundColor(.white)
+                                .frame(maxWidth: .infinity).padding().background(Color.orange).cornerRadius(12)
+                        }
                     }
                 }
                 .padding(.horizontal)
 
-                // NOTAS
+                Divider().padding()
+
+                // 4. NOTAS
                 VStack(alignment: .leading) {
                     Text("Mis Notas").font(.headline)
                     TextEditor(text: Binding(get: { book.notes ?? "" }, set: { book.notes = $0 }))
-                        .frame(height: 150)
-                        .padding(4)
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.2)))
-                }
-                .padding(.horizontal)
+                        .frame(height: 150).padding(4)
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.3)))
+                }.padding(.horizontal)
 
                 Button("Eliminar libro", role: .destructive) {
                     modelContext.delete(book)
                     dismiss()
-                }
-                .padding(.top)
+                }.padding(.vertical, 30)
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        // Al entrar, si ya tiene rating, lo cargamos
-        .onAppear { rating = book.rating }
+        
+        // --- AQUÍ ESTÁ EL CAMBIO: .fullScreenCover ---
+        .fullScreenCover(isPresented: $showingStartSheet) {
+            NavigationStack {
+                ScrollView {
+                    VStack(spacing: 25) {
+                        AsyncImage(url: URL(string: book.coverUrl)) { image in
+                            image.resizable().aspectRatio(contentMode: .fit)
+                        } placeholder: { Color.gray }
+                        .frame(height: 250).cornerRadius(12).shadow(radius: 5) // Portada más grande
+                        .padding(.top, 40)
+                        
+                        Text(book.title).font(.title2).bold().multilineTextAlignment(.center).padding(.horizontal)
+                        
+                        // Tarjeta de Datos
+                        VStack(spacing: 20) {
+                            DatePicker("Fecha de inicio", selection: $tempDate, displayedComponents: .date)
+                                .font(.subheadline)
+                            
+                            Divider()
+                            
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Formato").font(.subheadline)
+                                Picker("Formato", selection: $tempFormat) {
+                                    ForEach(formats, id: \.self) { Text($0) }
+                                }.pickerStyle(.segmented)
+                            }
+                            
+                            Divider()
+                            
+                            HStack {
+                                Text("Precio").font(.subheadline)
+                                Spacer()
+                                TextField("0", value: $tempPrice, format: .number)
+                                    .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                                    .frame(width: 80).padding(6).background(Color(.systemGray6)).cornerRadius(8)
+                                Text("€").font(.body)
+                            }
+                        }
+                        .padding()
+                        .background(RoundedRectangle(cornerRadius: 15).fill(Color(.secondarySystemBackground)))
+                        .padding(.horizontal)
+                        
+                        Button(action: confirmStartReading) {
+                            Text("Confirmar y Empezar")
+                                .bold().foregroundStyle(.white)
+                                .frame(maxWidth: .infinity).padding().background(Color.blue).cornerRadius(15)
+                        }
+                        .padding(.horizontal).padding(.top, 20)
+                    }
+                }
+                .navigationTitle("Configurar Lectura")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancelar") { showingStartSheet = false }
+                    }
+                }
+            }
+        }
     }
 
-    private func finishBook() {
-        // Aquí podrías mostrar un pequeño Alert o Sheet para pedir las estrellas
-        // Por ahora, lo movemos a leídos y podrías dejar que el usuario las pulse
+    // Funciones
+    private func confirmStartReading() {
+        withAnimation {
+            book.status = "Leyendo"
+            book.startDate = tempDate
+            book.format = tempFormat
+            book.price = tempPrice
+            showingStartSheet = false
+        }
+    }
+
+    private func moveToRead() {
         withAnimation {
             book.status = "Leídos"
             book.dateFinished = Date()
-            // Aquí podrías añadir una lógica para que el usuario elija las estrellas
-        }
-    }
-}
-struct RatingView: View {
-    @Binding var rating: Int
-    
-    var body: some View {
-        HStack {
-            ForEach(1...5, id: \.self) { index in
-                Image(systemName: index <= rating ? "star.fill" : "star")
-                    .foregroundColor(.yellow)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        rating = index
-                    }
-            }
+            showingRating = false
+            dismiss()
         }
     }
 }

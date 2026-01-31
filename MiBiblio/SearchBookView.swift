@@ -73,7 +73,7 @@ struct SearchBookView: View {
         let cleanQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         
         // --- 🔑 PEGA TU CLAVE AQUÍ ---
-        let apiKey = "AIzaSyCFi3IGwH-BRG7QNe4K_0xrvlCgowgJBf8"
+        let apiKey = Secrets.googleBooksApiKey
         // -----------------------------
         
         let urlString = "https://www.googleapis.com/books/v1/volumes?q=\(cleanQuery)&key=\(apiKey)"
