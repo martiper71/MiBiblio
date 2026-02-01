@@ -9,6 +9,7 @@ struct BookDetailView: View {
     // Estados
     @State private var showingRating = false
     @State private var showingStartSheet = false
+    @State private var showingEditSheet = false // <--- NUEVO: Para abrir la edición
     
     // Variables temporales
     @State private var tempDate = Date()
@@ -33,51 +34,33 @@ struct BookDetailView: View {
                     Text(book.author).font(.title3).foregroundStyle(.secondary)
                 }.padding(.horizontal)
 
-                // --- NUEVO BLOQUE DE DETALLES ---
-                // Solo se muestra si NO es "Próximos" (es decir, Leyendo o Leídos)
+                // BLOQUE DE DETALLES (Fecha, Formato, Precio)
                 if book.status != "Próximos" {
                     HStack(spacing: 20) {
-                        // Columna 1: Formato
                         VStack(spacing: 4) {
                             Text("Formato").font(.caption).textCase(.uppercase).foregroundStyle(.secondary)
                             Text(book.format).font(.headline)
-                        }
-                        .frame(maxWidth: .infinity)
-                        
+                        }.frame(maxWidth: .infinity)
                         Divider()
-                        
-                        // Columna 2: Precio
                         VStack(spacing: 4) {
                             Text("Precio").font(.caption).textCase(.uppercase).foregroundStyle(.secondary)
                             Text(book.price.formatted(.currency(code: "EUR"))).font(.headline)
-                        }
-                        .frame(maxWidth: .infinity)
-                        
+                        }.frame(maxWidth: .infinity)
                         Divider()
-                        
-                        // Columna 3: Fecha Inicio
                         VStack(spacing: 4) {
                             Text("Inicio").font(.caption).textCase(.uppercase).foregroundStyle(.secondary)
                             if let start = book.startDate {
                                 Text(start.formatted(date: .numeric, time: .omitted)).font(.headline)
-                            } else {
-                                Text("-").font(.headline)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
+                            } else { Text("-").font(.headline) }
+                        }.frame(maxWidth: .infinity)
                     }
-                    .padding()
-                    .background(Color(.secondarySystemBackground)) // Fondo gris suave
-                    .cornerRadius(12)
-                    .padding(.horizontal)
+                    .padding().background(Color(.secondarySystemBackground)).cornerRadius(12).padding(.horizontal)
                 }
-                // -------------------------------
 
                 Divider().padding(.horizontal)
 
                 // 3. LÓGICA DE ESTADO
                 VStack(spacing: 20) {
-                    
                     // CASO A: Leyendo
                     if book.status == "Leyendo" {
                         if !showingRating {
@@ -105,7 +88,6 @@ struct BookDetailView: View {
                             .padding().background(Color.gray.opacity(0.1)).cornerRadius(15)
                         }
                     }
-                    
                     // CASO B: Leídos
                     else if book.status == "Leídos" {
                         VStack(spacing: 5) {
@@ -118,10 +100,8 @@ struct BookDetailView: View {
                                 }
                             }.font(.title2)
                         }
-                        .padding().frame(maxWidth: .infinity)
-                        .background(Color.yellow.opacity(0.15)).cornerRadius(12)
+                        .padding().frame(maxWidth: .infinity).background(Color.yellow.opacity(0.15)).cornerRadius(12)
                     }
-                    
                     // CASO C: Próximos
                     else {
                         Button(action: { showingStartSheet = true }) {
@@ -149,7 +129,20 @@ struct BookDetailView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         
-        // HOJA DE CONFIGURACIÓN (PANTALLA COMPLETA)
+        // --- AQUÍ ESTÁ EL NUEVO BOTÓN DE EDITAR ---
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Editar") {
+                    showingEditSheet = true
+                }
+            }
+        }
+        // --- AQUÍ ESTÁ LA LÓGICA PARA ABRIR EL EDITOR ---
+        .sheet(isPresented: $showingEditSheet) {
+            EditBookView(book: book)
+        }
+        
+        // HOJA DE INICIO DE LECTURA (Como antes)
         .fullScreenCover(isPresented: $showingStartSheet) {
             NavigationStack {
                 ScrollView {
@@ -157,14 +150,12 @@ struct BookDetailView: View {
                         AsyncImage(url: URL(string: book.coverUrl)) { image in
                             image.resizable().aspectRatio(contentMode: .fit)
                         } placeholder: { Color.gray }
-                        .frame(height: 250).cornerRadius(12).shadow(radius: 5)
-                        .padding(.top, 40)
+                        .frame(height: 250).cornerRadius(12).shadow(radius: 5).padding(.top, 40)
                         
                         Text(book.title).font(.title2).bold().multilineTextAlignment(.center).padding(.horizontal)
                         
                         VStack(spacing: 20) {
-                            DatePicker("Fecha de inicio", selection: $tempDate, displayedComponents: .date)
-                                .font(.subheadline)
+                            DatePicker("Fecha de inicio", selection: $tempDate, displayedComponents: .date).font(.subheadline)
                             Divider()
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Formato").font(.subheadline)
@@ -182,9 +173,7 @@ struct BookDetailView: View {
                                 Text("€").font(.body)
                             }
                         }
-                        .padding()
-                        .background(RoundedRectangle(cornerRadius: 15).fill(Color(.secondarySystemBackground)))
-                        .padding(.horizontal)
+                        .padding().background(RoundedRectangle(cornerRadius: 15).fill(Color(.secondarySystemBackground))).padding(.horizontal)
                         
                         Button(action: confirmStartReading) {
                             Text("Confirmar y Empezar")
