@@ -8,9 +8,9 @@ struct BookDetailView: View {
     
     // Estados
     @State private var showingRating = false
-    @State private var showingStartSheet = false // Controla la pantalla completa
+    @State private var showingStartSheet = false
     
-    // Variables temporales para la configuración
+    // Variables temporales
     @State private var tempDate = Date()
     @State private var tempFormat = "Físico"
     @State private var tempPrice = 0.0
@@ -33,12 +33,52 @@ struct BookDetailView: View {
                     Text(book.author).font(.title3).foregroundStyle(.secondary)
                 }.padding(.horizontal)
 
-                Divider().padding()
+                // --- NUEVO BLOQUE DE DETALLES ---
+                // Solo se muestra si NO es "Próximos" (es decir, Leyendo o Leídos)
+                if book.status != "Próximos" {
+                    HStack(spacing: 20) {
+                        // Columna 1: Formato
+                        VStack(spacing: 4) {
+                            Text("Formato").font(.caption).textCase(.uppercase).foregroundStyle(.secondary)
+                            Text(book.format).font(.headline)
+                        }
+                        .frame(maxWidth: .infinity)
+                        
+                        Divider()
+                        
+                        // Columna 2: Precio
+                        VStack(spacing: 4) {
+                            Text("Precio").font(.caption).textCase(.uppercase).foregroundStyle(.secondary)
+                            Text(book.price.formatted(.currency(code: "EUR"))).font(.headline)
+                        }
+                        .frame(maxWidth: .infinity)
+                        
+                        Divider()
+                        
+                        // Columna 3: Fecha Inicio
+                        VStack(spacing: 4) {
+                            Text("Inicio").font(.caption).textCase(.uppercase).foregroundStyle(.secondary)
+                            if let start = book.startDate {
+                                Text(start.formatted(date: .numeric, time: .omitted)).font(.headline)
+                            } else {
+                                Text("-").font(.headline)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .padding()
+                    .background(Color(.secondarySystemBackground)) // Fondo gris suave
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+                }
+                // -------------------------------
+
+                Divider().padding(.horizontal)
 
                 // 3. LÓGICA DE ESTADO
                 VStack(spacing: 20) {
                     
-                    // CASO A: Libro en curso (Leyendo)
+                    // CASO A: Leyendo
                     if book.status == "Leyendo" {
                         if !showingRating {
                             Button(action: { withAnimation { showingRating = true } }) {
@@ -47,7 +87,6 @@ struct BookDetailView: View {
                                     .frame(maxWidth: .infinity).padding().background(Color.blue).cornerRadius(12)
                             }
                         } else {
-                            // Selector de Estrellas
                             VStack(spacing: 15) {
                                 Text("¿Qué nota le pones?").font(.headline)
                                 HStack(spacing: 10) {
@@ -67,10 +106,10 @@ struct BookDetailView: View {
                         }
                     }
                     
-                    // CASO B: Libro terminado (Leídos)
+                    // CASO B: Leídos
                     else if book.status == "Leídos" {
                         VStack(spacing: 5) {
-                            Text("Leído el \(book.dateFinished?.formatted(date: .abbreviated, time: .omitted) ?? "-")")
+                            Text("Finalizado el \(book.dateFinished?.formatted(date: .abbreviated, time: .omitted) ?? "-")")
                                 .font(.caption).foregroundStyle(.secondary)
                             HStack {
                                 ForEach(1...5, id: \.self) { number in
@@ -83,7 +122,7 @@ struct BookDetailView: View {
                         .background(Color.yellow.opacity(0.15)).cornerRadius(12)
                     }
                     
-                    // CASO C: Próximos libros
+                    // CASO C: Próximos
                     else {
                         Button(action: { showingStartSheet = true }) {
                             Label("Empezar a leer", systemImage: "book.fill")
@@ -94,25 +133,23 @@ struct BookDetailView: View {
                 }
                 .padding(.horizontal)
 
-                Divider().padding()
-
                 // 4. NOTAS
                 VStack(alignment: .leading) {
                     Text("Mis Notas").font(.headline)
                     TextEditor(text: Binding(get: { book.notes ?? "" }, set: { book.notes = $0 }))
                         .frame(height: 150).padding(4)
                         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.3)))
-                }.padding(.horizontal)
+                }.padding()
 
                 Button("Eliminar libro", role: .destructive) {
                     modelContext.delete(book)
                     dismiss()
-                }.padding(.vertical, 30)
+                }.padding(.bottom, 30)
             }
         }
         .navigationBarTitleDisplayMode(.inline)
         
-        // --- AQUÍ ESTÁ EL CAMBIO: .fullScreenCover ---
+        // HOJA DE CONFIGURACIÓN (PANTALLA COMPLETA)
         .fullScreenCover(isPresented: $showingStartSheet) {
             NavigationStack {
                 ScrollView {
@@ -120,27 +157,22 @@ struct BookDetailView: View {
                         AsyncImage(url: URL(string: book.coverUrl)) { image in
                             image.resizable().aspectRatio(contentMode: .fit)
                         } placeholder: { Color.gray }
-                        .frame(height: 250).cornerRadius(12).shadow(radius: 5) // Portada más grande
+                        .frame(height: 250).cornerRadius(12).shadow(radius: 5)
                         .padding(.top, 40)
                         
                         Text(book.title).font(.title2).bold().multilineTextAlignment(.center).padding(.horizontal)
                         
-                        // Tarjeta de Datos
                         VStack(spacing: 20) {
                             DatePicker("Fecha de inicio", selection: $tempDate, displayedComponents: .date)
                                 .font(.subheadline)
-                            
                             Divider()
-                            
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Formato").font(.subheadline)
                                 Picker("Formato", selection: $tempFormat) {
                                     ForEach(formats, id: \.self) { Text($0) }
                                 }.pickerStyle(.segmented)
                             }
-                            
                             Divider()
-                            
                             HStack {
                                 Text("Precio").font(.subheadline)
                                 Spacer()
@@ -173,7 +205,6 @@ struct BookDetailView: View {
         }
     }
 
-    // Funciones
     private func confirmStartReading() {
         withAnimation {
             book.status = "Leyendo"
